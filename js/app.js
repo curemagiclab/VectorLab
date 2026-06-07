@@ -382,8 +382,14 @@ import * as vtracer_bg from './vtracer_webapp_bg.js';
       });
 
       const canvas = $("frame");
-      canvas.width = img.width;
-      canvas.height = img.height;
+      const width = img.naturalWidth || img.width;
+      const height = img.naturalHeight || img.height;
+      canvas.width = width;
+      canvas.height = height;
+      
+      const svgElForPrep = $("svg");
+      svgElForPrep.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
       URL.revokeObjectURL(img.src);
@@ -506,11 +512,4 @@ import * as vtracer_bg from './vtracer_webapp_bg.js';
     downloadBtn.classList.remove("disabled");
   }
 
-  // --- Auto-load for testing ---
-  fetch('image.png')
-    .then(r => r.blob())
-    .then(blob => {
-      const file = new File([blob], "image.png", { type: "image/png" });
-      loadFile(file);
-    });
 })();
