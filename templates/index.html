@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vectorlab — Raster to Vector Studio</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}?v=3" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>◈</text></svg>" />
+</head>
+<body>
+  <div class="bg-grid" aria-hidden="true"></div>
+  <div class="bg-glow" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark">◈</span>
+      <div class="brand-text">
+        <span class="brand-name">Vectorlab</span>
+        <span class="brand-tag" data-i18n="brandTag">raster → vector studio</span>
+      </div>
+    </div>
+    <div class="topbar-meta">
+      <span class="pill"><span class="dot"></span>vtracer engine</span>
+    </div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ CONTROL SIDEBAR ============ -->
+    <aside class="sidebar" aria-label="Vectorization controls">
+      <form id="controls" autocomplete="off">
+        <section class="panel">
+          <h2 class="panel-title"><span class="idx">01</span><span data-i18n="srcPanel">Source image</span></h2>
+
+          <label id="dropzone" class="dropzone" for="file-input" tabindex="0">
+            <input id="file-input" type="file" accept="image/png,image/jpeg,image/bmp,image/webp,image/gif" hidden />
+            <div class="dz-empty">
+              <div class="dz-icon">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 16V4m0 0L7 9m5-5 5 5" />
+                  <path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />
+                </svg>
+              </div>
+              <p class="dz-headline" data-i18n="dropHeadline">Drop an image here</p>
+              <p class="dz-sub" data-i18n-html="dropSub">or <span class="dz-link">browse files</span> — PNG · JPEG · WEBP</p>
+            </div>
+            <div class="dz-loaded" hidden>
+              <img id="thumb" class="dz-thumb" alt="Uploaded preview" />
+              <div class="dz-info">
+                <span id="file-name" class="file-name">image.png</span>
+                <span id="file-size" class="file-size">—</span>
+              </div>
+              <button type="button" id="clear-file" class="dz-clear" aria-label="Remove image">✕</button>
+            </div>
+          </label>
+        </section>
+
+        <section class="panel">
+          <h2 class="panel-title"><span class="idx">02</span><span data-i18n="tracingPanel">Tracing settings</span></h2>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="colormode" data-i18n="modeLabel">Mode</label>
+              <button class="info-tip" type="button" data-i18n-tip="mode">ℹ</button>
+            </div>
+            <div class="select-wrap">
+              <select id="colormode" name="colormode">
+                <option value="color" selected data-i18n="optColor">Color</option>
+                <option value="bw" data-i18n="optBW">Black &amp; White</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="hierarchical" data-i18n="hierarchyLabel">Layout hierarchy</label>
+              <button class="info-tip" type="button" data-i18n-tip="hierarchy">ℹ</button>
+            </div>
+            <div class="select-wrap">
+              <select id="hierarchical" name="hierarchical">
+                <option value="stacked" selected data-i18n="optStacked">Stacked</option>
+                <option value="cutout" data-i18n="optCutout">Cutout</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field">
+            <div class="field-head">
+              <label for="mode" data-i18n="curveLabel">Curve smoothing</label>
+              <button class="info-tip" type="button" data-i18n-tip="curve">ℹ</button>
+            </div>
+            <div class="select-wrap">
+              <select id="mode" name="mode">
+                <option value="spline" selected data-i18n="optSpline">Spline</option>
+                <option value="polygon" data-i18n="optPolygon">Polygon</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="field slider-field">
+            <div class="slider-head">
+              <div class="field-head">
+                <label for="filter_speckle" data-i18n="speckleLabel">Filter speckle</label>
+                <button class="info-tip" type="button" data-i18n-tip="speckle">ℹ</button>
+              </div>
+              <output id="filter_speckle_v" class="value">4</output>
+            </div>
+            <input type="range" id="filter_speckle" name="filter_speckle" min="1" max="10" value="4" />
+            <div class="scale"><span data-i18n="scaleClean">clean</span><span data-i18n="scaleDetail">detail</span></div>
+          </div>
+
+          <div class="field slider-field">
+            <div class="slider-head">
+              <div class="field-head">
+                <label for="color_precision" data-i18n="precisionLabel">Color precision</label>
+                <button class="info-tip" type="button" data-i18n-tip="precision">ℹ</button>
+              </div>
+              <output id="color_precision_v" class="value">6</output>
+            </div>
+            <input type="range" id="color_precision" name="color_precision" min="1" max="8" value="6" />
+            <div class="scale"><span data-i18n="scaleFlat">flat</span><span data-i18n="scaleRich">rich</span></div>
+          </div>
+
+          <div class="field slider-field">
+            <div class="slider-head">
+              <div class="field-head">
+                <label for="layer_difference" data-i18n="layerLabel">Layer difference</label>
+                <button class="info-tip" type="button" data-i18n-tip="layer">ℹ</button>
+              </div>
+              <output id="layer_difference_v" class="value">16</output>
+            </div>
+            <input type="range" id="layer_difference" name="layer_difference" min="2" max="32" value="16" />
+            <div class="scale"><span data-i18n="scaleFine">fine</span><span data-i18n="scaleCoarse">coarse</span></div>
+          </div>
+        </section>
+
+        <button type="submit" id="convert-btn" class="btn-primary" disabled>
+          <span class="btn-label" data-i18n="convertBtn">Convert to SVG</span>
+          <svg class="btn-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14m-6-6 6 6-6 6"/></svg>
+        </button>
+        <p id="error-msg" class="error-msg" hidden></p>
+      </form>
+    </aside>
+
+    <!-- ============ RESULT DISPLAY ============ -->
+    <section class="stage" aria-label="Comparison view">
+      <div class="stage-toolbar">
+        <div class="seg" role="tablist">
+          <span class="seg-label" data-i18n="compareLabel">Compare</span>
+        </div>
+        <div class="zoom" id="zoom-controls" hidden>
+          <button type="button" id="zoom-out" aria-label="Zoom out">−</button>
+          <span id="zoom-level" class="zoom-level">100%</span>
+          <button type="button" id="zoom-in" aria-label="Zoom in">+</button>
+          <button type="button" id="zoom-reset" class="zoom-reset">Fit</button>
+        </div>
+        <a id="download-btn" class="btn-download disabled" download="vectorized.svg">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v12m0 0 4-4m-4 4-4-4M4 20h16"/></svg>
+          <span data-i18n="downloadBtn">Download SVG</span>
+        </a>
+      </div>
+
+      <div class="compare">
+        <div class="pane">
+          <span class="pane-tag" data-i18n="origTag">Original</span>
+          <div class="pane-canvas checker">
+            <img id="orig-view" class="orig-view" alt="" hidden />
+            <div class="placeholder" id="orig-placeholder">
+              <span class="ph-glyph">⌗</span>
+              <p data-i18n="origPh">Your source image will appear here</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="pane">
+          <span class="pane-tag accent" id="svg-pane-tag" data-i18n="svgTag">Vector · SVG</span>
+          <div class="pane-canvas checker">
+            <div id="svg-view" class="svg-view" hidden></div>
+            <div class="placeholder" id="svg-placeholder">
+              <span class="ph-glyph">◈</span>
+              <p data-i18n="svgPh">The vectorized result will render here</p>
+            </div>
+            <div class="overlay" id="loading" hidden>
+              <div class="spinner"><span></span><span></span><span></span></div>
+              <p class="overlay-text" id="overlay-status"></p>
+              <p class="overlay-elapsed" id="overlay-elapsed"></p>
+              <p class="overlay-hint" id="overlay-hint"></p>
+              <button type="button" id="overlay-refresh" class="overlay-refresh" onclick="location.reload()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/></svg>
+                <span data-i18n="refreshBtn">ページを更新</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <footer class="stage-foot">
+        <span id="stat-info" class="stat" data-i18n="awaitingImg">Awaiting image</span>
+      </footer>
+    </section>
+  </main>
+
+  <script src="{{ url_for('static', filename='app.js') }}?v=3"></script>
+</body>
+</html>

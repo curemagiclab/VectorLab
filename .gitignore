@@ -1,0 +1,24 @@
+# Python caches and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+env/
+
+# Build and distribution artifacts
+build/
+dist/
+*.spec
+
+# Logs
+*.log
+console.log
+
+# IDE, OS, and development tools
+.claude/
+Claude.md
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
