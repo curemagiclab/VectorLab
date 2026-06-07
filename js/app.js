@@ -339,8 +339,9 @@ import * as vtracer_bg from './vtracer_webapp_bg.js';
 
   // --- zoom ---------------------------------------------------------------
   function applyZoom() {
-    svgView.style.transform = `scale(${zoom})`;
-    zoomLevel.textContent = Math.round(zoom * 100) + "%";
+    if (svgView) svgView.style.transform = `scale(${zoom})`;
+    if (origView) origView.style.transform = `scale(${zoom})`;
+    if (zoomLevel) zoomLevel.textContent = Math.round(zoom * 100) + "%";
   }
   $("zoom-in").addEventListener("click", () => { zoom = Math.min(zoom + 0.25, 8); applyZoom(); });
   $("zoom-out").addEventListener("click", () => { zoom = Math.max(zoom - 0.25, 0.25); applyZoom(); });
@@ -389,6 +390,8 @@ import * as vtracer_bg from './vtracer_webapp_bg.js';
       
       const svgElForPrep = $("svg");
       svgElForPrep.setAttribute("viewBox", `0 0 ${width} ${height}`);
+      svgElForPrep.setAttribute("width", width);
+      svgElForPrep.setAttribute("height", height);
       
       const ctx = canvas.getContext("2d", { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
@@ -455,7 +458,10 @@ import * as vtracer_bg from './vtracer_webapp_bg.js';
 
       // 5. Get SVG result
       const svgEl = $("svg");
+      const originalStyle = svgEl.getAttribute("style");
+      svgEl.removeAttribute("style");
       const result = svgEl.outerHTML;
+      if (originalStyle) svgEl.setAttribute("style", originalStyle);
 
       if (!result) throw new Error(T.errNoSvg);
 
