@@ -356,25 +356,53 @@
     statInfo.textContent = T.tracing;
     statInfo.classList.remove("done");
 
-    const fd = new FormData();
-    fd.append("image", currentFile);
-    fd.append("colormode", $("colormode").value);
-    fd.append("hierarchical", $("hierarchical").value);
-    fd.append("mode", $("mode").value);
-    sliders.forEach((id) => fd.append(id, $(id).value));
-
     const t0 = performance.now();
     try {
-      const res = await fetch("/api/vectorize", { method: "POST", body: fd });
-      const data = await res.json().catch(() => ({}));
+      // 1. Get ImageData
+      const img = new Image();
+      img.src = URL.createObjectURL(currentFile);
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = () => reject(new Error("Failed to load image for processing."));
+      });
 
-      if (!res.ok) throw new Error(data.error || `Server error (${res.status}).`);
-      if (!data.svg) throw new Error(T.errNoSvg);
+      const canvas = document.createElement("canvas");
+      canvas.width = img.width;
+      canvas.height = img.height;
+      const ctx = canvas.getContext("2d");
+      ctx.drawImage(img, 0, 0);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      URL.revokeObjectURL(img.src);
 
-      renderSVG(data.svg);
+      // 2. Gather params
+      const params = {
+        colormode: $("colormode").value,
+        hierarchical: $("hierarchical").value,
+        mode: $("mode").value
+      };
+      sliders.forEach((id) => params[id] = $(id).value);
+
+      // 3. Call Web Worker
+      const worker = new Worker("js/worker.js", { type: "module" });
+      const result = await new Promise((resolve, reject) => {
+        worker.onmessage = (e) => {
+          if (e.data.success) {
+            resolve(e.data.svg);
+          } else {
+            reject(new Error(e.data.error || T.convFailed));
+          }
+        };
+        worker.onerror = (err) => reject(new Error(err.message || T.convFailed));
+        worker.postMessage({ imageData, params });
+      });
+      worker.terminate();
+
+      if (!result) throw new Error(T.errNoSvg);
+
+      renderSVG(result);
 
       const ms = Math.round(performance.now() - t0);
-      const kb = (data.svg.length / 1024).toFixed(1);
+      const kb = (result.length / 1024).toFixed(1);
       statInfo.textContent = T.doneMsg(ms, kb);
       statInfo.classList.add("done");
     } catch (err) {
