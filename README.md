@@ -59,7 +59,7 @@ On error returns `{ "error": "message" }` with a 4xx/5xx status.
 ## Project layout
 
 ```
-SVGCreator/
+VectorLab/
 ├── app.py                 # Flask backend + vtracer wrapper
 ├── requirements.txt
 ├── templates/
