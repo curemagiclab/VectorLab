@@ -2,7 +2,10 @@
    Vectorlab — front-end controller
    Handles upload (drag/drop + browse), live slider readouts,
    conversion request, SVG render, zoom, and download.
+   Uses local WASM vtracer on the main thread.
    ============================================================ */
+
+import * as vtracer_bg from './vtracer_webapp_bg.js';
 
 (() => {
   "use strict";
@@ -344,6 +347,8 @@
   $("zoom-reset").addEventListener("click", () => { zoom = 1; applyZoom(); });
 
   // --- conversion ---------------------------------------------------------
+  let wasm_initialized = false;
+
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
     if (!currentFile) { showError(T.errNoFile); return; }
@@ -358,7 +363,17 @@
 
     const t0 = performance.now();
     try {
-      // 1. Get ImageData
+      // 1. Initialize WASM module if not already initialized
+      if (!wasm_initialized) {
+        const response = await fetch('js/vtracer_webapp_bg.wasm');
+        const wasmModule = await WebAssembly.instantiateStreaming(response, {
+          './vtracer_webapp_bg.js': vtracer_bg
+        });
+        vtracer_bg.__wbg_set_wasm(wasmModule.instance.exports);
+        wasm_initialized = true;
+      }
+
+      // 2. Draw image to hidden canvas "frame"
       const img = new Image();
       img.src = URL.createObjectURL(currentFile);
       await new Promise((resolve, reject) => {
@@ -366,36 +381,75 @@
         img.onerror = () => reject(new Error("Failed to load image for processing."));
       });
 
-      const canvas = document.createElement("canvas");
+      const canvas = $("frame");
       canvas.width = img.width;
       canvas.height = img.height;
-      const ctx = canvas.getContext("2d");
+      const ctx = canvas.getContext("2d", { willReadFrequently: true });
       ctx.drawImage(img, 0, 0);
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
       URL.revokeObjectURL(img.src);
 
-      // 2. Gather params
-      const params = {
+      const deg2rad = (deg) => deg/180*3.141592654;
+      
+      const rawParams = {
+        canvas_id: "frame",
+        svg_id: "svg",
         colormode: $("colormode").value,
         hierarchical: $("hierarchical").value,
         mode: $("mode").value
       };
-      sliders.forEach((id) => params[id] = $(id).value);
+      sliders.forEach((id) => rawParams[id] = parseInt($(id).value, 10));
 
-      // 3. Call Web Worker
-      const worker = new Worker("js/worker.js", { type: "module" });
-      const result = await new Promise((resolve, reject) => {
-        worker.onmessage = (e) => {
-          if (e.data.success) {
-            resolve(e.data.svg);
-          } else {
-            reject(new Error(e.data.error || T.convFailed));
+      const params = {
+        canvas_id: "frame",
+        svg_id: "svg",
+        colormode: rawParams.colormode,
+        hierarchical: rawParams.hierarchical,
+        mode: rawParams.mode,
+        corner_threshold: deg2rad(60.0),
+        length_threshold: 4.0,
+        max_iterations: 10,
+        splice_threshold: deg2rad(45.0),
+        filter_speckle: rawParams.filter_speckle * rawParams.filter_speckle,
+        color_precision: 8 - rawParams.color_precision,
+        layer_difference: rawParams.layer_difference,
+        path_precision: 8
+      };
+
+      // 4. Run converter
+      console.log("Creating converter with params:", params);
+      const converter = params.colormode === "color" 
+        ? vtracer_bg.ColorImageConverter.new_with_string(JSON.stringify(params))
+        : vtracer_bg.BinaryImageConverter.new_with_string(JSON.stringify(params));
+      
+      console.log("Calling converter.init()");
+      converter.init();
+      console.log("converter.init() success");
+      
+      let tickCount = 0;
+      // non-blocking loop
+      await new Promise((resolve, reject) => {
+        function loop() {
+          try {
+            tickCount++;
+            if (tickCount % 100 === 0) console.log("Calling tick", tickCount);
+            const done = converter.tick();
+            if (done) {
+              console.log("converter done at tick", tickCount);
+              resolve();
+            } else {
+              setTimeout(loop, 0); // yield to browser
+            }
+          } catch(err) {
+            console.error("converter.tick() panicked at tick", tickCount, err);
+            reject(err);
           }
-        };
-        worker.onerror = (err) => reject(new Error(err.message || T.convFailed));
-        worker.postMessage({ imageData, params });
+        }
+        setTimeout(loop, 0);
       });
-      worker.terminate();
+
+      // 5. Get SVG result
+      const svgEl = $("svg");
+      const result = svgEl.outerHTML;
 
       if (!result) throw new Error(T.errNoSvg);
 
@@ -406,6 +460,7 @@
       statInfo.textContent = T.doneMsg(ms, kb);
       statInfo.classList.add("done");
     } catch (err) {
+      console.error(err);
       showError(err.message || T.convFailed);
       statInfo.textContent = T.convFailed;
       statInfo.classList.remove("done");
@@ -422,7 +477,9 @@
     // Setting innerHTML on a 17MB+ SVG freezes the browser's main thread
     // for tens of seconds; <img src=blobURL> loads asynchronously.
     if (downloadUrl) { URL.revokeObjectURL(downloadUrl); downloadUrl = null; }
-    const blob = new Blob([svgText], { type: "image/svg+xml" });
+    
+    const svgContent = `<?xml version="1.0" encoding="UTF-8"?>\n<!-- Generator: Vectorlab (visioncortex VTracer) -->\n` + svgText;
+    const blob = new Blob([svgContent], { type: "image/svg+xml" });
     downloadUrl = URL.createObjectURL(blob);
 
     svgView.innerHTML = "";
@@ -448,4 +505,12 @@
     downloadBtn.setAttribute("download", `${base}.svg`);
     downloadBtn.classList.remove("disabled");
   }
+
+  // --- Auto-load for testing ---
+  fetch('image.png')
+    .then(r => r.blob())
+    .then(blob => {
+      const file = new File([blob], "image.png", { type: "image/png" });
+      loadFile(file);
+    });
 })();
